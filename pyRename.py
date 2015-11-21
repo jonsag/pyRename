@@ -4,14 +4,14 @@
 
 import sys, getopt, os, ConfigParser
 
-from modules import onError, usage, findFiles
+from modules import onError, usage, findFiles, doRename
 from genericpath import isfile
 
 try:
     myopts, args = getopt.getopt(sys.argv[1:],
-                                 'c:p:ro:n:e:vh',
+                                 'c:p:ro:n:e:yvh',
                                  ['configfile=', 'path=', 'recursive', 'oldpattern=', 'newpattern=', 
-                                  'extensions=', 
+                                  'extensions=', 'yes', 
                                   'verbose', 'help'])
 
 except getopt.GetoptError as e:
@@ -25,7 +25,8 @@ searchPath = os.path.abspath(os.getcwd())
 recursive = False
 oldPattern = ""
 newPattern = ""
-extensions = "*"
+extensions = "*Files"
+yesToQuestions = False
 verbose = False
     
 for option, argument in myopts:
@@ -41,6 +42,8 @@ for option, argument in myopts:
         newPattern = argument 
     elif option in ('-e', '--extensions'):
         extensions = argument
+    elif option in ('-y', '--yes'):
+        yesToQuestions = True
     elif option in ('-v', '--verbose'):  # verbose output
         verbose = True
     elif option in ('-h', '--help'):  # display help text
@@ -77,9 +80,12 @@ if configFileName: # argument -c --configfile passed
                 line.lower().split("=")[1].lstrip(" ").rstrip("\n") == "true"):
                 recursive = True 
             myConfig['Recursive'] = recursive
+        elif line.lower().startswith("extensions"):
+            extensions = line.split("=")[1].lstrip(" ").rstrip("\n")
+            myConfig['Extensions'] = extensions
             
     if verbose:
-        print "\nConfig:"
+        print "\nConfig: %s" % configFileName
         for key, value in myConfig.items():
             print "%s: %s" % (key, value)
     
@@ -95,13 +101,21 @@ myFiles = findFiles(searchPath, recursive, extensions, verbose)
 toRename = []
 
 for myFile in myFiles:
-    if oldPattern in myFile:
-        toRename.append(myFile)
+    if oldPattern in os.path.basename(myFile):
+        toRename.append(os.path.join(searchPath, myFile))
         
 if toRename:
     print "\nThese files will be renamed:"
     for myFile in toRename:
-        print "%s => %s" % (os.path.basename(myFile), os.path.basename(myFile.replace(oldPattern, newPattern)))
+        print "%s => %s" % (os.path.basename(myFile), 
+                            os.path.basename(myFile.replace(oldPattern, newPattern)))
+    for myFile in toRename:
+        newName = os.path.join(os.path.dirname(myFile), 
+                               os.path.basename(myFile.replace(oldPattern, newPattern)))
+        doRename(myFile, newName, yesToQuestions, verbose)
+else:
+    print "\nNo files matches pattern"
+    print "Nothing to rename"
                             
                             
                             
